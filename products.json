@@ -3,17 +3,28 @@
     "_comment": "── Price tracking (Dutch retailers) ──────────────────────────────────",
     "name": "Fujifilm GFX 100S II Body — cameranu",
     "url": "https://www.cameranu.nl/nl/p123456/fujifilm-gfx-100s-ii/",
-    "alert_below": 4500
+    "alert_below": 5201
+  },
+    {
+    "_comment": "── Price tracking (Dutch retailers) ──────────────────────────────────",
+    "name": "Fujifilm GFX 100S II Body en 35-70 — cameranu",
+    "url": "https://www.cameranu.nl/p3457849/fujifilm-gfx-100s-ii-middenformaat-camera-gf-35-70mm/",
+    "alert_below": 5501
   },
   {
     "name": "Fujifilm GF 30mm f/3.5 R WR — coolblue",
     "url": "https://www.coolblue.nl/product/12345/fujifilm-gf-30mm-f-35-r-wr.html",
-    "alert_below": 1200
+    "alert_below": 1601
+  },
+    {
+    "name": "Fujifilm GF 30mm f/3.5 R WR — cameranu",
+    "url": "https://www.cameranu.nl/p3191747/fujifilm-gf-30mm-f-3-5-r-wr-objectief/",
+    "alert_below": 1601
   },
   {
     "name": "Fujifilm GFX 100S II — kamera-express",
     "url": "https://www.kamera-express.nl/product/12345/fujifilm-gfx-100s-ii",
-    "alert_below": 4500
+    "alert_below": 5201
   },
   {
     "_comment": "── Availability tracking (Kamerastore) ───────────────────────────────",
