@@ -4,6 +4,7 @@ Price & Availability Tracker
 - Price tracking: bol.com, coolblue.nl, cameranu.nl, kamera-express.nl, nivo-schweitzer.nl
 - Availability tracking: kamerastore.com, mpb.com
 Sends Telegram alerts on price drops or stock changes.
+Requests routed through WebShare residential proxy to avoid Cloudflare blocks.
 """
 
 import json
@@ -12,7 +13,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -38,20 +39,32 @@ HEADERS = {
     "Sec-Fetch-User": "?1",
     "Cache-Control": "max-age=0",
 }
-REQUEST_TIMEOUT = 15
+REQUEST_TIMEOUT = 20
 DELAY_BETWEEN_REQUESTS = 3  # seconds — be polite to servers
+
+
+# ── Proxy ─────────────────────────────────────────────────────────────────────
+def get_proxies() -> dict | None:
+    """Build a WebShare residential proxy config from environment secrets."""
+    username = os.environ.get("PROXY_USERNAME")
+    password = os.environ.get("PROXY_PASSWORD")
+    if not username or not password:
+        print("  ℹ️  No proxy credentials set — connecting directly")
+        return None
+    proxy_url = f"http://{username}:{password}@p.webshare.io:80"
+    return {"http": proxy_url, "https": proxy_url}
 
 
 # ── Data model for availability results ──────────────────────────────────────
 @dataclass
 class AvailabilityResult:
     in_stock: bool
-    stock_count: int | None = None       # total units available
-    price_from: float | None = None      # lowest listed price (used market)
-    price_to: float | None = None        # highest listed price
+    stock_count: int | None = None
+    price_from: float | None = None
+    price_to: float | None = None
     currency: str = "EUR"
-    conditions: list[str] = field(default_factory=list)  # e.g. ["Good", "Excellent"]
-    raw: str = ""                        # raw snippet for debugging
+    conditions: list[str] = field(default_factory=list)
+    raw: str = ""
 
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
@@ -165,7 +178,12 @@ def fetch_price(url: str) -> float | None:
         print(f"  ⚠️  No price parser for: {url}")
         return None
     try:
-        r = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        r = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=REQUEST_TIMEOUT,
+            proxies=get_proxies(),
+        )
         r.raise_for_status()
         return parser(BeautifulSoup(r.text, "html.parser"))
     except requests.RequestException as e:
@@ -179,8 +197,8 @@ def fetch_price(url: str) -> float | None:
 
 def fetch_kamerastore_availability(url: str) -> AvailabilityResult | None:
     """
-    Kamerastore runs on Shopify. We use the /products/[slug].json API endpoint
-    for clean structured data — far more reliable than HTML scraping.
+    Kamerastore runs on Shopify. We call /products/[slug].json directly —
+    no HTML scraping needed, clean structured data every time.
 
     Page URL:  https://kamerastore.com/en-us/products/fujifilm-gfx-50s
     API URL:   https://kamerastore.com/products/fujifilm-gfx-50s.json
@@ -191,10 +209,15 @@ def fetch_kamerastore_availability(url: str) -> AvailabilityResult | None:
         return None
 
     slug = match.group(1)
-    api_url = f"https://kamerastore.com/en-eu/products/{slug}.json"
+    api_url = f"https://kamerastore.com/products/{slug}.json"
 
     try:
-        r = requests.get(api_url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        r = requests.get(
+            api_url,
+            headers=HEADERS,
+            timeout=REQUEST_TIMEOUT,
+            proxies=get_proxies(),
+        )
         r.raise_for_status()
         data = r.json()
     except Exception as e:
@@ -207,7 +230,6 @@ def fetch_kamerastore_availability(url: str) -> AvailabilityResult | None:
     if not variants:
         return AvailabilityResult(in_stock=False, raw="No variants found")
 
-    # Each individual used unit is typically its own variant on Kamerastore
     available_variants = [v for v in variants if v.get("available", False)]
     prices = []
     conditions = []
@@ -216,7 +238,6 @@ def fetch_kamerastore_availability(url: str) -> AvailabilityResult | None:
         price = _parse_float(str(v.get("price", "0")))
         if price:
             prices.append(price)
-        # Condition/grade is usually the variant title or option1
         title = v.get("title", "") or v.get("option1", "")
         if title and title not in ("Default Title", ""):
             conditions.append(title)
@@ -236,16 +257,21 @@ def fetch_kamerastore_availability(url: str) -> AvailabilityResult | None:
 
 def fetch_mpb_availability(url: str) -> AvailabilityResult | None:
     """
-    MPB product pages are server-rendered. We use the en-eu locale for EUR
-    pricing. We try JSON-LD structured data first, then fall back to HTML.
+    MPB product pages are server-rendered. We normalise to en-eu for EUR
+    pricing, try JSON-LD structured data first, then fall back to HTML parsing.
     """
-    # Normalise to en-eu locale for EUR prices
+    # Normalise any MPB locale to en-eu for EUR pricing
     eu_url = re.sub(r"mpb\.com/[a-z]{2}-[a-z]{2}/", "mpb.com/en-eu/", url)
     if "/en-eu/" not in eu_url:
         eu_url = eu_url.replace("mpb.com/", "mpb.com/en-eu/")
 
     try:
-        r = requests.get(eu_url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        r = requests.get(
+            eu_url,
+            headers=HEADERS,
+            timeout=REQUEST_TIMEOUT,
+            proxies=get_proxies(),
+        )
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
     except requests.RequestException as e:
@@ -298,7 +324,6 @@ def fetch_mpb_availability(url: str) -> AvailabilityResult | None:
     stock_count = int(stock_match.group(1)) if stock_match else None
     in_stock = stock_count is not None and stock_count > 0
 
-    # Price range: "from €1,234" or "€1,234 – €1,567"
     price_match = re.search(
         r"from\s*[€£$]?\s*([\d.,]+)(?:\s*[-–]\s*[€£$]?\s*([\d.,]+))?",
         page_text,
@@ -311,7 +336,6 @@ def fetch_mpb_availability(url: str) -> AvailabilityResult | None:
         else price_from
     )
 
-    # Last resort: grab any price element
     if price_from is None:
         for sel in ['[class*="price"]', '[data-testid*="price"]', ".product-price"]:
             el = soup.select_one(sel)
@@ -471,10 +495,9 @@ def process_availability_product(product: dict, avail_history: dict, now: str) -
     print(f"           │ 🔍 {result.raw}")
 
     prev = avail_history.get(url, {})
-    prev_in_stock = prev.get("in_stock")      # None = never checked
+    prev_in_stock = prev.get("in_stock")
     prev_count = prev.get("stock_count")
 
-    # Save current state
     avail_history[url] = {
         "ts": now,
         "in_stock": result.in_stock,
@@ -506,7 +529,7 @@ def process_availability_product(product: dict, avail_history: dict, now: str) -
         alerts.append(msg)
         print("           │ 🔴 ALERT: Went out of stock")
 
-    # New units listed (stock count went up)
+    # New units listed
     elif (
         result.in_stock
         and prev_count is not None
@@ -541,13 +564,11 @@ def main():
         print("⚠️  products.json is empty. Add products first.")
         sys.exit(0)
 
-    # prices.json stores both price history (keyed by URL) and availability
-    # state (under the reserved "__availability__" key)
     price_history = load_json(PRICES_FILE, {})
     avail_history = price_history.setdefault("__availability__", {})
 
     alerts = []
-    now = datetime.utcnow().isoformat(timespec="minutes")
+    now = datetime.now(timezone.utc).isoformat(timespec="minutes")
 
     print("=" * 60)
     print(f"  Price & Availability Tracker  —  {now} UTC")
@@ -555,6 +576,8 @@ def main():
 
     for product in products:
         url = product.get("url", "")
+        if not url or url.startswith("_"):
+            continue  # skip comment-only entries
         if is_availability_site(url):
             alerts.extend(process_availability_product(product, avail_history, now))
         else:
