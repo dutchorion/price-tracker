@@ -51,7 +51,7 @@ def get_proxies() -> dict | None:
     if not username or not password:
         print("  ℹ️  No proxy credentials set — connecting directly")
         return None
-    proxy_url = f"http://{username}:{password}@p.webshare.io:80"
+    proxy_url = f"http://{username}:{password}@31.58.9.4:6077"
     return {"http": proxy_url, "https": proxy_url}
 
 
