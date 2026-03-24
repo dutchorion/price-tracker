@@ -1,0 +1,40 @@
+[
+  {
+    "_comment": "── Price tracking (Dutch retailers) ──────────────────────────────────",
+    "name": "Fujifilm GFX 100S II Body — cameranu",
+    "url": "https://www.cameranu.nl/nl/p123456/fujifilm-gfx-100s-ii/",
+    "alert_below": 4500
+  },
+  {
+    "name": "Fujifilm GF 30mm f/3.5 R WR — coolblue",
+    "url": "https://www.coolblue.nl/product/12345/fujifilm-gf-30mm-f-35-r-wr.html",
+    "alert_below": 1200
+  },
+  {
+    "name": "Fujifilm GFX 100S II — kamera-express",
+    "url": "https://www.kamera-express.nl/product/12345/fujifilm-gfx-100s-ii",
+    "alert_below": 4500
+  },
+  {
+    "_comment": "── Availability tracking (Kamerastore) ───────────────────────────────",
+    "name": "Fujifilm GFX 100S II — Kamerastore",
+    "url": "https://kamerastore.com/en-us/products/fujifilm-gfx-100s-ii"
+  },
+  {
+    "name": "Fujifilm GFX 50S II — Kamerastore",
+    "url": "https://kamerastore.com/en-us/products/fujifilm-gfx-50s-ii"
+  },
+  {
+    "_comment": "── Availability tracking (MPB) ───────────────────────────────────────",
+    "name": "Fujifilm GFX 100S II — MPB",
+    "url": "https://www.mpb.com/en-eu/product/fujifilm-gfx-100s-ii"
+  },
+  {
+    "name": "Fujifilm GFX 100S — MPB",
+    "url": "https://www.mpb.com/en-eu/product/fujifilm-gfx-100s"
+  },
+  {
+    "name": "Fujifilm GF 110mm f/2 R LM WR — MPB",
+    "url": "https://www.mpb.com/en-eu/product/fujifilm-gf-110mm-f-2-r-lm-wr"
+  }
+]
